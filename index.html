@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗂️</text></svg>">
+<script>if(/[?&]c=/.test(location.search))location.replace("declaracao.html"+location.search);</script>
 <script src="config.js"></script>
 <style>
 .wrap{max-width:1040px}
@@ -28,7 +29,6 @@
 <body>
 <div class="wrap">
   <div class="brand">
-    <svg class="shield" viewBox="0 0 30 34" aria-hidden="true"><path d="M15 1 28 6v10c0 8-5.6 14.4-13 17C7.6 30.4 2 24 2 16V6z" fill="var(--ink)"/><path d="M9 11h3.2l2.8 9 2.8-9H21l-4.6 13h-2.8z" fill="var(--ticket)"/></svg>
     Painel do RH · Vale-Transporte
   </div>
 
@@ -54,7 +54,7 @@
     <!-- GERAR -->
     <section id="v-gerar">
       <h1>Gerar link para o funcionário</h1>
-      <p class="lead">O link abre em qualquer celular, sem login. O formulário já vem com a razão social, o CNPJ e o nome do funcionário.</p>
+      <p class="lead">O funcionário recebe o link direto da requisição de vale-transporte, já com a razão social, o CNPJ e o nome dele preenchidos. Abre em qualquer celular, sem login, e o link não expira.</p>
       <div class="step">
         <div class="grid">
           <div class="c6"><label class="f" for="genEmp">Empresa (razão social e CNPJ)</label><select id="genEmp"></select></div>
@@ -110,7 +110,7 @@
 (function(){
   const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
   const API=window.API_URL;
-  const FORM_URL=new URL("index.html",location.href).href.split("?")[0];
+  const FORM_URL=new URL("declaracao.html",location.href).href.split("?")[0];
   let chave=null, dados={convites:[],respostas:[],empresas:[]}, vistos=new Set(), primeiraCarga=true, timer=null;
   function esc(s){const d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}
   async function api(body){ const r=await fetch(API,{method:"POST",body:JSON.stringify(Object.assign({chave},body))}); return r.json(); }
@@ -152,7 +152,7 @@
   /* ---------- Gerar link ---------- */
   function mensagem(cv){
     const p=(cv.nome||"").split(/\s+/)[0]||"";
-    return `Olá${p?", "+p:""}! Preencha sua Declaração de Vale-Transporte da ${cv.empresa.razao} (CNPJ ${cv.empresa.cnpj}).\n\nAcesse pelo celular: ${FORM_URL}?c=${cv.codigo}\n\nTenha em mãos o comprovante de residência (com data dos últimos 2 meses) e o cartão de passagem, se optar pelo vale. Se não optar, será pedida a foto de uma carta de próprio punho.`;
+    return `Olá${p?", "+p:""}! Segue o link para preencher sua *Requisição de Vale-Transporte* da ${cv.empresa.razao} (CNPJ ${cv.empresa.cnpj}):\n\n${FORM_URL}?c=${cv.codigo}\n\nO link é pessoal e não expira. Tenha em mãos o comprovante de residência (com data dos últimos 2 meses) e o cartão de passagem, se optar pelo vale. Se não optar, será pedida a foto de uma carta de próprio punho.`;
   }
   async function copiar(txt,btn){ let ok=false; try{await navigator.clipboard.writeText(txt);ok=true;}catch(e){const t=document.createElement("textarea");t.value=txt;document.body.appendChild(t);t.select();try{ok=document.execCommand("copy");}catch(x){}t.remove();} const o=btn.textContent; btn.textContent=ok?"Copiado ✓":"Copie manualmente"; setTimeout(()=>btn.textContent=o,1800); }
   function wa(cv){ const t=String(cv.tel||"").replace(/\D/g,""); return "https://wa.me/"+(t?(t.length<=11?"55"+t:t):"")+"?text="+encodeURIComponent(mensagem(cv)); }
@@ -186,10 +186,10 @@
     $("#cvBody").innerHTML=l.length?l.map(c=>{
       const s=String(c.situacao), pill=s.indexOf("Respondeu - opta")===0?'<span class="pill yes">Respondeu · opta</span>':s.indexOf("Respondeu")===0?'<span class="pill no">Respondeu · não opta</span>':'<span class="pill pend">Pendente</span>';
       return `<tr><td>${esc(c.nome)}</td><td>${esc(c.empresa.razao)}<br><span class="hint">${esc(c.empresa.cnpj)}</span></td><td style="font-weight:700;letter-spacing:2px">${esc(c.codigo)}</td><td>${esc(c.criadoEm)}</td><td>${pill}${c.respondidoEm?'<br><span class="hint">'+esc(c.respondidoEm)+'</span>':""}</td>
-        <td style="white-space:nowrap"><button class="btn small" data-cv="${esc(c.codigo)}">Ver link</button> <button class="btn small" data-del="${esc(c.codigo)}">Cancelar</button></td></tr>`;}).join("")
+        <td style="white-space:nowrap"><button class="btn small" data-cv="${esc(c.codigo)}">Ver link</button> <button class="btn small" data-del="${esc(c.codigo)}">Desativar</button></td></tr>`;}).join("")
       :'<tr><td colspan="6" class="hint">Nenhum link gerado ainda.</td></tr>';
     $$("[data-cv]").forEach(b=>b.onclick=()=>{ mostrar(dados.convites.find(x=>x.codigo===b.dataset.cv)); $("#genOut").scrollIntoView({behavior:"smooth",block:"center"}); });
-    $$("[data-del]").forEach(b=>b.onclick=async()=>{ if(!confirm("Cancelar este link? O funcionário não conseguirá mais usá-lo.")) return; await api({action:"excluirConvite",codigo:b.dataset.del}); carregar(); });
+    $$("[data-del]").forEach(b=>b.onclick=async()=>{ if(!confirm("Desativar este link? O funcionário não conseguirá mais abrir a requisição.")) return; await api({action:"excluirConvite",codigo:b.dataset.del}); carregar(); });
   }
   $("#fCvEmp").onchange=renderConvites; $("#fCvSit").onchange=renderConvites;
 

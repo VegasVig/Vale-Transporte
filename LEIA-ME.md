@@ -2,8 +2,8 @@
 
 Este pacote cria dois endereços:
 
-- **Formulário do funcionário** (`index.html`): abre em qualquer celular, sem login.
-- **Painel do RH** (`rh.html`): protegido por senha. Nele o RH gera os links personalizados e vê as respostas chegando sozinhas, com atualização a cada 30 segundos.
+- **Painel do RH** (`index.html`, endereço principal): protegido por senha. Nele o RH gera os links personalizados e vê as respostas chegando sozinhas, com atualização a cada 30 segundos.
+- **Requisição do funcionário** (`declaracao.html`): o link enviado ao funcionário abre direto aqui, já preenchido, em qualquer celular e sem login. O link **não expira**: só deixa de funcionar se o RH clicar em *Desativar* ou se a linha for apagada da aba Convites.
 
 O GitHub Pages hospeda apenas as páginas. As respostas são gravadas numa **Planilha Google**, e as fotos (comprovante, cartão e carta) numa **pasta privada do Google Drive** da conta do RH, por meio de um pequeno script gratuito do Google (Apps Script). Nenhum dado fica no GitHub.
 
@@ -46,11 +46,11 @@ window.API_URL = "https://script.google.com/macros/s/AKfy.../exec";
 
 1. Crie uma conta em github.com, se ainda não tiver.
 2. Clique em **New repository**. Use o nome `vale-transporte` e deixe o repositório **Public**, porque o GitHub Pages gratuito exige isso. As páginas não contêm dados pessoais nem a senha.
-3. Na página do repositório, clique em **Add file > Upload files** e envie os 5 arquivos: `index.html`, `rh.html`, `style.css`, `config.js` e `LEIA-ME.md`. **Não envie o `Code.gs`**. Clique em **Commit changes**.
+3. Na página do repositório, clique em **Add file > Upload files** e envie os arquivos: `index.html`, `declaracao.html`, `rh.html` (redirecionamento), `style.css`, `config.js`, `fundo-vegas.jpg` e `LEIA-ME.md`. **Não envie o `Code.gs`**. Clique em **Commit changes**.
 4. Vá em **Settings > Pages**. Em *Branch*, escolha **main** e a pasta **/(root)**, e clique em **Save**.
 5. Depois de 1 a 2 minutos, o site estará em:
-   - Painel do RH: `https://SEU-USUARIO.github.io/vale-transporte/rh.html`
-   - Formulário: `https://SEU-USUARIO.github.io/vale-transporte/index.html`
+   - Painel do RH: `https://SEU-USUARIO.github.io/vale-transporte/`
+   - Requisição do funcionário: `https://SEU-USUARIO.github.io/vale-transporte/declaracao.html?c=CODIGO`
 
 ## Passo 5: usar
 
