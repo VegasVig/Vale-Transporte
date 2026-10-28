@@ -78,6 +78,7 @@ function doPost(e) {
       case "gerarConvite":  return json_(rh_(d, () => gerarConvite_(d)));
       case "excluirConvite":return json_(rh_(d, () => excluirConvite_(d.codigo)));
       case "listar":        return json_(rh_(d, () => listar_()));
+      case "pdf":           return json_(rh_(d, () => gerarPdf_(d)));
       default:              return json_({ ok: false, erro: "Ação desconhecida." });
     }
   } catch (err) { return json_({ ok: false, erro: String(err.message || err) }); }
@@ -172,7 +173,7 @@ function enviar_(d) {
     const carimbo = Utilities.formatDate(agora, "America/Sao_Paulo", "dd/MM/yyyy HH:mm:ss");
     const base = Utilities.formatDate(agora, "America/Sao_Paulo", "yyyyMMdd-HHmm") + "_" + d.codigo + "_" + limparNome_(d.nome);
     const linkComp = d.opcao === "opto" ? salvarFoto_(d.fotoComprovante, base + "_comprovante") : "";
-    const linkCart = d.opcao === "opto" && d.fotoCartao ? salvarFoto_(d.fotoCartao, base + "_cartao") : "";
+    const linkCart = d.fotoCartao ? salvarFoto_(d.fotoCartao, base + "_cartao") : "";
     const linkCarta = d.opcao === "nao_opto" ? salvarFoto_(d.fotoCarta, base + "_carta") : "";
     const e = d.endereco || {};
     const trecho = l => (l || []).map(x => `${x.empresa} / ${x.linha} / R$ ${Number(x.valor || 0).toFixed(2).replace(".", ",")}`).join(" + ");
@@ -184,7 +185,7 @@ function enviar_(d) {
       seguro_(d.local), seguro_(d.dataTexto),
       seguro_(e.rua), seguro_(e.numero), seguro_(e.complemento), seguro_(e.bairro), seguro_(e.cidade), seguro_(e.uf), seguro_(e.cep),
       seguro_(trecho(d.ida)), seguro_(trecho(d.volta)), d.opcao === "opto" ? custo.toFixed(2).replace(".", ",") : "",
-      seguro_(d.cartaoNumero || ""), d.opcao === "opto" ? (d.semCartao ? "Não" : "Sim") : "",
+      seguro_(d.cartaoNumero || ""), d.opcao === "opto" ? (d.semCartao ? "Não" : "Sim") : (linkCart || d.cartaoNumero ? "Sim" : ""),
       linkComp, linkCart, linkCarta,
       d.opcao === "opto" ? (d.comprovanteData ? "Sim" : "Não") : "", d.declaracoes ? "Sim" : "Não",
       "Sim", seguro_(d.lgpdVersao || ""), "Sim", seguro_(String(d.dispositivo || "").slice(0, 150))
@@ -208,3 +209,77 @@ function salvarFoto_(dataUrl, nome) {
 function limparNome_(s) { return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").slice(0, 40); }
 /* Impede que textos digitados virem fórmulas na planilha */
 function seguro_(v) { v = String(v == null ? "" : v).slice(0, 500); return /^[=+\-@]/.test(v) ? "'" + v : v; }
+
+/* ================= PDF DA FICHA ================= */
+const TXT_DECL_OPTA = [
+  "Comprometo-me a atualizar as informações acima sempre que ocorrerem alterações e a utilizar os vales-transporte que me forem concedidos exclusivamente no percurso indicado.",
+  "Estou ciente de que a declaração inexata que induza o empregador em erro, ou o uso indevido dos vales-transporte, configura justa causa para rescisão do contrato de trabalho por ato de improbidade (art. 482, \"a\", da CLT)."
+];
+const TXT_DECL_NAO = "Declaro que não desejo receber o vale-transporte (ou solicito o cancelamento do benefício atual) e estou ciente de que posso solicitá-lo novamente a qualquer momento, preenchendo nova declaração.";
+
+function gerarPdf_(d) {
+  const r = linhas_("Respostas").map(l => { const o = {}; COLS_RESPOSTAS.forEach((c, i) => o[c] = l[i]); return o; })
+    .find(o => o["Código"] === d.codigo && o["Enviado em"] === d.enviadoEm);
+  if (!r) return { ok: false, erro: "Resposta não encontrada na planilha." };
+  const nome = "Ficha VT - " + limparNome_(r["Nome"]) + " - " + r["Código"] + ".pdf";
+  const pdf = Utilities.newBlob(htmlFicha_(r), MimeType.HTML, "ficha.html").getAs(MimeType.PDF).setName(nome);
+  return { ok: true, nome, pdf: Utilities.base64Encode(pdf.getBytes()) };
+}
+
+function imgDrive_(url) {
+  const m = String(url || "").match(/\/d\/([\w-]+)/) || String(url || "").match(/[?&]id=([\w-]+)/);
+  if (!m) return "";
+  try {
+    const b = DriveApp.getFileById(m[1]).getBlob();
+    return "data:" + b.getContentType() + ";base64," + Utilities.base64Encode(b.getBytes());
+  } catch (e) { return ""; }
+}
+
+function htmlFicha_(r) {
+  const h = v => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const opta = r["Opção"] === "Opta";
+  const campo = (t, v, cs) => `<td${cs ? ` colspan="${cs}"` : ""} style="border:1px solid #999;padding:5px 7px;vertical-align:top"><div style="font-size:8pt;color:#555">${t}</div><div style="font-size:10pt">${h(v) || "&nbsp;"}</div></td>`;
+  const titulo = t => `<div style="background:#16243A;color:#fff;font-weight:bold;font-size:10pt;padding:5px 7px;margin-top:12px">${t}</div>`;
+  const caixa = on => on ? "[X]" : "[&nbsp;&nbsp;]";
+  const trechos = txt => {
+    const l = String(txt || "").split(" + ").filter(Boolean).map(x => x.split(" / "));
+    if (!l.length) return `<tr><td colspan="3" style="border:1px solid #999;padding:5px 7px">—</td></tr>`;
+    return l.map(p => `<tr><td style="border:1px solid #999;padding:5px 7px">${h(p[0])}</td><td style="border:1px solid #999;padding:5px 7px">${h(p[1])}</td><td style="border:1px solid #999;padding:5px 7px;text-align:right">${h(p[2])}</td></tr>`).join("");
+  };
+  const tabTrecho = (t, txt) => `<p style="font-size:9pt;font-weight:bold;margin:8px 0 3px">${t}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:9.5pt"><tr style="background:#eee"><th style="border:1px solid #999;padding:4px;text-align:left">Empresa de ônibus</th><th style="border:1px solid #999;padding:4px;text-align:left">Linha</th><th style="border:1px solid #999;padding:4px;text-align:right">Valor</th></tr>${trechos(txt)}</table>`;
+  const anexo = (t, url) => { const src = imgDrive_(url); return src ? `<div style="page-break-before:always">${titulo(t)}<p style="text-align:center;margin-top:10px"><img src="${src}" width="520"></p></div>` : ""; };
+
+  let corpo = `<table style="width:100%;border-collapse:collapse"><tr>${campo("Nome do empregado", r["Nome"], 2)}${campo("Local e data", r["Local"] + ", " + r["Data da declaração"])}</tr></table>
+    ${titulo("Opção")}
+    <p style="font-size:10pt;margin:6px 0">${caixa(opta)} Opto pelo vale-transporte &nbsp;&nbsp;&nbsp; ${caixa(!opta)} Não opto / solicito o cancelamento</p>`;
+  if (opta) {
+    corpo += `${titulo("Endereço residencial")}
+    <table style="width:100%;border-collapse:collapse"><tr>${campo("Rua / Avenida", r["Rua"], 3)}${campo("Número", r["Número"])}</tr>
+    <tr>${campo("Complemento", r["Complemento"])}${campo("Bairro", r["Bairro"])}${campo("Cidade / UF", r["Cidade"] + " / " + r["UF"])}${campo("CEP", r["CEP"])}</tr></table>
+    ${titulo("Meios de transporte utilizados")}
+    ${tabTrecho("Da residência para o trabalho", r["Ida (empresa / linha / valor)"])}
+    ${tabTrecho("Do trabalho para a residência", r["Volta (empresa / linha / valor)"])}
+    <p style="font-size:10pt;text-align:right;margin:6px 0"><b>Custo diário informado: R$ ${h(r["Custo diário (R$)"])}</b></p>`;
+  }
+  if (r["Possui cartão"] || r["Nº do cartão"] || r["Foto do cartão"])
+    corpo += `${titulo("Cartão de passagem")}<table style="width:100%;border-collapse:collapse"><tr>${campo("Possui cartão", r["Possui cartão"] || "—")}${campo("Número do cartão", r["Nº do cartão"] || "—")}${campo("Foto anexada", r["Foto do cartão"] ? "Sim" : "Não")}</tr></table>`;
+  corpo += `${titulo("Declarações")}<div style="font-size:9.5pt;line-height:1.45">` +
+    (opta ? TXT_DECL_OPTA.map(t => `<p style="margin:6px 0">[X] ${h(t)}</p>`).join("") +
+            `<p style="margin:6px 0">[${r["Comprovante com data dos últimos 2 meses (declarado)"] === "Sim" ? "X" : "&nbsp;&nbsp;"}] Declaro que o comprovante de residência anexado tem data dos últimos dois meses.</p><p style="margin:6px 0;color:#555">O desconto em folha é de até 6% do salário básico, conforme a Lei nº 7.418/1985.</p>`
+          : `<p style="margin:6px 0">[X] ${h(TXT_DECL_NAO)}</p><p style="margin:6px 0">Carta de próprio punho assinada pelo empregado anexada a esta ficha.</p>`) + `</div>
+    ${titulo("Registro da assinatura eletrônica")}
+    <table style="width:100%;border-collapse:collapse"><tr>${campo("Enviado em", r["Enviado em"])}${campo("Código da requisição", r["Código"])}${campo("Termo LGPD", "Aceito · versão " + r["Versão do termo"])}</tr>
+    <tr>${campo("Dispositivo", r["Dispositivo"], 3)}</tr></table>
+    <table style="width:100%;margin-top:40px"><tr><td style="width:50%;text-align:center;font-size:9pt"><div style="border-top:1px solid #000;margin:0 20px;padding-top:3px">${h(r["Nome"])}<br>Empregado</div></td>
+    <td style="width:50%;text-align:center;font-size:9pt"><div style="border-top:1px solid #000;margin:0 20px;padding-top:3px">${h(r["Razão social"])}<br>Empregador</div></td></tr></table>`;
+
+  return `<html><head><meta charset="utf-8"></head><body style="font-family:Arial,Helvetica,sans-serif;color:#111;margin:0">
+    <table style="width:100%;border-collapse:collapse;border-bottom:2px solid #16243A"><tr>
+      <td><div style="font-size:14pt;font-weight:bold">Declaração de Beneficiário de Vale-Transporte</div><div style="font-size:9pt;color:#555">Lei nº 7.418/1985 · Decreto nº 10.854/2021</div></td>
+      <td style="text-align:right;font-size:9pt"><b>${h(r["Razão social"])}</b><br>CNPJ ${h(r["CNPJ"])}</td></tr></table>
+    ${corpo}
+    ${opta ? anexo("Anexo · Comprovante de residência", r["Comprovante de residência"]) : anexo("Anexo · Carta de próprio punho", r["Carta de próprio punho"])}
+    ${anexo("Anexo · Cartão de passagem", r["Foto do cartão"])}
+  </body></html>`;
+}

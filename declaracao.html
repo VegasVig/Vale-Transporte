@@ -20,7 +20,7 @@
 
   <main>
     <h1>Declaração de Beneficiário de Vale-Transporte</h1>
-    <p class="lead">Escolha se deseja receber ou cancelar o vale-transporte. Se optar por receber, informe seu endereço, as conduções que utiliza e anexe a foto de um comprovante de residência atualizado.</p>
+    <p class="lead">Escolha se deseja receber ou cancelar o vale-transporte. Se optar por receber, informe seu endereço, as conduções que utiliza e anexe a foto de um comprovante de residência atualizado. Se não optar, envie a foto de uma carta escrita e assinada à mão.</p>
     <p class="date-line" id="dateLine"></p>
 
     <!-- Código da requisição -->
@@ -114,20 +114,6 @@
           <div class="err" id="err-chkData">Confirme a data do comprovante.</div>
         </section>
 
-        <section class="step">
-          <div class="step-head"><span class="num" data-n>5</span><h2>Cartão de passagem</h2></div>
-          <p class="hint">Se você já tem cartão de passagem (Riocard Mais ou cartão da empresa de ônibus), tire uma foto da frente, mostrando o número. Se ainda não tem, marque a opção abaixo.</p>
-          <label class="drop" for="cartaoFile" id="cartaoDrop">
-            <span class="ico"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2.5 9.5h19" stroke="currentColor" stroke-width="2"/><path d="M6 15h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="17" cy="15" r="1.6" fill="currentColor"/></svg></span>
-            <span><strong>Tirar foto do cartão de passagem</strong><br><span class="hint">Abre a câmera. Fotografe a frente com o número visível.</span></span>
-            <input type="file" id="cartaoFile" accept="image/*" capture="environment">
-          </label>
-          <p style="margin-top:8px"><button type="button" class="btn small" data-gallery="cartaoFile">Escolher foto da galeria</button></p>
-          <div class="preview" id="cartaoPreview"><img id="cartaoImg" alt="Prévia do cartão"><div><strong>Foto do cartão anexada</strong><br><button type="button" class="btn small" data-retake="cartaoFile">Tirar outra foto</button></div></div>
-          <div class="grid" style="margin-top:12px"><div class="c3"><label class="f" for="cartaoNum">Número do cartão <span class="hint">(opcional)</span></label><input type="text" id="cartaoNum" inputmode="numeric" maxlength="30"></div></div>
-          <label class="check"><input type="checkbox" id="semCartao"><span>Ainda não tenho cartão de passagem.</span></label>
-          <div class="err" id="err-cartao">Tire a foto do cartão de passagem ou marque que ainda não tem cartão.</div>
-        </section>
       </div>
 
       <div id="optOut" class="hidden">
@@ -155,6 +141,20 @@
         </section>
       </div>
 
+      <section class="step hidden" id="cartaoSec">
+        <div class="step-head"><span class="num" data-n>5</span><h2>Cartão de passagem</h2></div>
+        <p class="hint" id="cartaoHint">Se você já tem cartão de passagem (Riocard Mais ou cartão da empresa de ônibus), tire uma foto da frente, mostrando o número. Se ainda não tem, marque a opção abaixo.</p>
+        <label class="drop" for="cartaoFile" id="cartaoDrop">
+          <span class="ico"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2.5 9.5h19" stroke="currentColor" stroke-width="2"/><path d="M6 15h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="17" cy="15" r="1.6" fill="currentColor"/></svg></span>
+          <span><strong>Tirar foto do cartão de passagem</strong><br><span class="hint">Abre a câmera. Fotografe a frente com o número visível.</span></span>
+          <input type="file" id="cartaoFile" accept="image/*" capture="environment">
+        </label>
+        <p style="margin-top:8px"><button type="button" class="btn small" data-gallery="cartaoFile">Escolher foto da galeria</button></p>
+        <div class="preview" id="cartaoPreview"><img id="cartaoImg" alt="Prévia do cartão"><div><strong>Foto do cartão anexada</strong><br><button type="button" class="btn small" data-retake="cartaoFile">Tirar outra foto</button></div></div>
+        <div class="grid" style="margin-top:12px"><div class="c3"><label class="f" for="cartaoNum">Número do cartão <span class="hint">(opcional)</span></label><input type="text" id="cartaoNum" inputmode="numeric" maxlength="30"></div></div>
+        <label class="check" id="semCartaoBox"><input type="checkbox" id="semCartao"><span>Ainda não tenho cartão de passagem.</span></label>
+        <div class="err" id="err-cartao">Tire a foto do cartão de passagem ou marque que ainda não tem cartão.</div>
+      </section>
       <section class="step">
         <div class="step-head"><span class="num" data-n>6</span><h2>Declarações</h2></div>
         <div id="declOpt" class="hidden">
@@ -255,6 +255,11 @@
     const o=opcao();
     $("#optIn").classList.toggle("hidden",o!=="opto"); $("#optOut").classList.toggle("hidden",o!=="nao_opto");
     $("#declOpt").classList.toggle("hidden",o!=="opto"); $("#declNo").classList.toggle("hidden",o!=="nao_opto");
+    $("#cartaoSec").classList.toggle("hidden",!o); $("#semCartaoBox").classList.toggle("hidden",o!=="opto");
+    $("#cartaoHint").textContent=o==="nao_opto"
+      ?"Opcional. Se você tem cartão de passagem (Riocard Mais ou cartão da empresa de ônibus), pode enviar uma foto da frente, mostrando o número."
+      :"Se você já tem cartão de passagem (Riocard Mais ou cartão da empresa de ônibus), tire uma foto da frente, mostrando o número. Se ainda não tem, marque a opção abaixo.";
+    if(o==="nao_opto"){ $("#semCartao").checked=false; $("#cartaoDrop").style.opacity=""; $("#err-cartao").classList.remove("show"); }
     $$("[data-n]").filter(n=>!n.closest(".hidden")).forEach((n,i)=>n.textContent=i+1);
     $("#err-opcao").classList.remove("show");
   }
@@ -361,8 +366,8 @@
     const ida=o==="opto"?legData("ida"):[], volta=o==="opto"?legData("volta"):[];
     const body={action:"enviar",codigo:convite.codigo,opcao:o,nome:$("#nome").value.trim(),local:$("#local").value.trim(),dataTexto,
       endereco:o==="opto"?{rua:$("#rua").value.trim(),numero:$("#numero").value.trim(),complemento:$("#compl").value.trim(),bairro:$("#bairro").value.trim(),cidade:$("#cidade").value.trim(),cep:$("#cep").value,uf:$("#uf").value}:null,
-      ida,volta,cartaoNumero:o==="opto"?$("#cartaoNum").value.trim():"",semCartao:o==="opto"&&$("#semCartao").checked,
-      fotoComprovante:o==="opto"?fotos.compFile:null,fotoCartao:o==="opto"?fotos.cartaoFile:null,fotoCarta:o==="nao_opto"?fotos.cartaFile:null,
+      ida,volta,cartaoNumero:$("#cartaoNum").value.trim(),semCartao:o==="opto"&&$("#semCartao").checked,
+      fotoComprovante:o==="opto"?fotos.compFile:null,fotoCartao:fotos.cartaoFile||null,fotoCarta:o==="nao_opto"?fotos.cartaFile:null,
       comprovanteData:o==="opto"&&$("#chkData").checked,declaracoes:true,lgpd:true,lgpdVersao:"2026-10",assinatura:true,dispositivo:navigator.userAgent};
     try{
       const r=await (await fetch(API,{method:"POST",body:JSON.stringify(body)})).json();

@@ -152,7 +152,7 @@
   /* ---------- Gerar link ---------- */
   function mensagem(cv){
     const p=(cv.nome||"").split(/\s+/)[0]||"";
-    return `Olá${p?", "+p:""}! Segue o link para preencher sua *Requisição de Vale-Transporte* da ${cv.empresa.razao} (CNPJ ${cv.empresa.cnpj}):\n\n${FORM_URL}?c=${cv.codigo}\n\nO link é pessoal e não expira. Tenha em mãos o comprovante de residência (com data dos últimos 2 meses) e o cartão de passagem, se optar pelo vale. Se não optar, será pedida a foto de uma carta de próprio punho.`;
+    return `Olá${p?", "+p:""}! Segue o link para preencher sua *Requisição de Vale-Transporte* da ${cv.empresa.razao} (CNPJ ${cv.empresa.cnpj}):\n\n${FORM_URL}?c=${cv.codigo}\n\nO link é pessoal e não expira. Tenha em mãos o comprovante de residência (com data dos últimos 2 meses) e o cartão de passagem, se optar pelo vale. Se não optar, será pedida a foto de uma carta escrita e assinada à mão (e, se tiver, a foto do cartão de passagem).`;
   }
   async function copiar(txt,btn){ let ok=false; try{await navigator.clipboard.writeText(txt);ok=true;}catch(e){const t=document.createElement("textarea");t.value=txt;document.body.appendChild(t);t.select();try{ok=document.execCommand("copy");}catch(x){}t.remove();} const o=btn.textContent; btn.textContent=ok?"Copiado ✓":"Copie manualmente"; setTimeout(()=>btn.textContent=o,1800); }
   function wa(cv){ const t=String(cv.tel||"").replace(/\D/g,""); return "https://wa.me/"+(t?(t.length<=11?"55"+t:t):"")+"?text="+encodeURIComponent(mensagem(cv)); }
@@ -211,10 +211,11 @@
       return `<tr class="${novo?"new-row":""}"><td><strong>${esc(r["Nome"])}</strong></td><td>${esc(r["Razão social"])}<br><span class="hint">${esc(r["CNPJ"])}</span></td>
         <td>${r["Opção"]==="Opta"?'<span class="pill yes">Opta</span>':'<span class="pill no">Não opta</span>'}</td>
         <td>${r["Custo diário (R$)"]?"R$ "+esc(r["Custo diário (R$)"]):"—"}</td><td>${esc(anexos)}</td><td>${esc(r["Enviado em"])}</td>
-        <td><button class="btn small" data-r="${i}">Ver</button></td></tr>`;}).join("")
+        <td style="white-space:nowrap"><button class="btn small" data-r="${i}">Ver</button> <button class="btn small" data-pdf="${i}">PDF</button></td></tr>`;}).join("")
       :'<tr><td colspan="7" class="hint">Nenhuma resposta ainda.</td></tr>';
     if(primeiraCarga) R.forEach(r=>vistos.add(chaveR(r)));
     $$("[data-r]").forEach(b=>b.onclick=()=>detalhe(l[+b.dataset.r]));
+    $$("[data-pdf]").forEach(b=>b.onclick=()=>baixarPdf(l[+b.dataset.pdf],b));
   }
   ["#fEmp","#fOpcao"].forEach(id=>$(id).onchange=renderRespostas); $("#fBusca").oninput=renderRespostas;
 
@@ -227,11 +228,25 @@
       ${linha("Local e data",r["Local"]+", "+r["Data da declaração"])}${linha("Endereço",end)}
       ${linha("Ida",r["Ida (empresa / linha / valor)"])}${linha("Volta",r["Volta (empresa / linha / valor)"])}
       ${r["Custo diário (R$)"]?linha("Custo diário","R$ "+r["Custo diário (R$)"]):""}
-      ${r["Opção"]==="Opta"?linha("Cartão de passagem",(r["Possui cartão"]==="Sim"?"possui":"ainda não possui")+(r["Nº do cartão"]?" · nº "+r["Nº do cartão"]:"")):""}
+      ${r["Opção"]==="Opta"||r["Possui cartão"]?linha("Cartão de passagem",(r["Possui cartão"]==="Sim"?"possui":"ainda não possui")+(r["Nº do cartão"]?" · nº "+r["Nº do cartão"]:"")):""}
       <p class="hint">Termo LGPD (versão ${esc(r["Versão do termo"])}) e assinatura eletrônica aceitos em ${esc(r["Enviado em"])}.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${lk("Abrir comprovante",r["Comprovante de residência"])}${lk("Abrir foto do cartão",r["Foto do cartão"])}${lk("Abrir carta de próprio punho",r["Carta de próprio punho"])}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${lk("Abrir comprovante",r["Comprovante de residência"])}${lk("Abrir foto do cartão",r["Foto do cartão"])}${lk("Abrir carta de próprio punho",r["Carta de próprio punho"])}<button class="btn small" id="dlgPdf" style="background:var(--ink);color:var(--bg);border-color:var(--ink)">Baixar ficha em PDF</button></div>
       <p class="hint" style="margin-top:8px">As fotos abrem no Google Drive da conta do RH (é preciso estar conectado nela).</p>`;
+    $("#dlgPdf").onclick=e=>baixarPdf(r,e.target);
     $("#dlg").showModal();
+  }
+
+  async function baixarPdf(r,btn){
+    const o=btn.textContent; btn.disabled=true; btn.textContent="Gerando PDF…";
+    try{
+      const x=await api({action:"pdf",codigo:r["Código"],enviadoEm:r["Enviado em"]});
+      if(!x.ok) throw new Error(x.erro||"Falha ao gerar o PDF.");
+      const bin=atob(x.pdf), u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+      const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([u8],{type:"application/pdf"})); a.download=x.nome;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+      btn.textContent="PDF baixado ✓";
+    }catch(e){ alert(e.message||"Falha ao gerar o PDF."); btn.textContent=o; }
+    setTimeout(()=>{btn.disabled=false; btn.textContent=o;},2000);
   }
   $("#dlgClose").onclick=()=>$("#dlg").close();
 
