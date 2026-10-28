@@ -143,7 +143,11 @@
 
       <section class="step hidden" id="cartaoSec">
         <div class="step-head"><span class="num" data-n>5</span><h2>Cartão de passagem</h2></div>
-        <p class="hint" id="cartaoHint">Se você já tem cartão de passagem (Riocard Mais ou cartão da empresa de ônibus), tire uma foto da frente, mostrando o número. Se ainda não tem, marque a opção abaixo.</p>
+        <p class="hint">Você já tem cartão de passagem (Riocard Mais ou cartão da empresa de ônibus)?</p>
+        <label class="check"><input type="radio" name="temCartao" value="sim"><span>Sim, já tenho cartão de passagem.</span></label>
+        <label class="check"><input type="radio" name="temCartao" value="nao"><span>Não, ainda não tenho cartão de passagem.</span></label>
+        <div id="cartaoCampos" class="hidden">
+        <p class="hint" style="margin:6px 0 10px">Tire uma foto da frente do cartão, mostrando o número.</p>
         <label class="drop" for="cartaoFile" id="cartaoDrop">
           <span class="ico"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2.5 9.5h19" stroke="currentColor" stroke-width="2"/><path d="M6 15h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="17" cy="15" r="1.6" fill="currentColor"/></svg></span>
           <span><strong>Tirar foto do cartão de passagem</strong><br><span class="hint">Abre a câmera. Fotografe a frente com o número visível.</span></span>
@@ -152,8 +156,8 @@
         <p style="margin-top:8px"><button type="button" class="btn small" data-gallery="cartaoFile">Escolher foto da galeria</button></p>
         <div class="preview" id="cartaoPreview"><img id="cartaoImg" alt="Prévia do cartão"><div><strong>Foto do cartão anexada</strong><br><button type="button" class="btn small" data-retake="cartaoFile">Tirar outra foto</button></div></div>
         <div class="grid" style="margin-top:12px"><div class="c3"><label class="f" for="cartaoNum">Número do cartão <span class="hint">(opcional)</span></label><input type="text" id="cartaoNum" inputmode="numeric" maxlength="30"></div></div>
-        <label class="check" id="semCartaoBox"><input type="checkbox" id="semCartao"><span>Ainda não tenho cartão de passagem.</span></label>
-        <div class="err" id="err-cartao">Tire a foto do cartão de passagem ou marque que ainda não tem cartão.</div>
+        </div>
+        <div class="err" id="err-cartao">Informe se você tem cartão de passagem.</div>
       </section>
       <section class="step">
         <div class="step-head"><span class="num" data-n>6</span><h2>Declarações</h2></div>
@@ -255,11 +259,9 @@
     const o=opcao();
     $("#optIn").classList.toggle("hidden",o!=="opto"); $("#optOut").classList.toggle("hidden",o!=="nao_opto");
     $("#declOpt").classList.toggle("hidden",o!=="opto"); $("#declNo").classList.toggle("hidden",o!=="nao_opto");
-    $("#cartaoSec").classList.toggle("hidden",!o); $("#semCartaoBox").classList.toggle("hidden",o!=="opto");
-    $("#cartaoHint").textContent=o==="nao_opto"
-      ?"Opcional. Se você tem cartão de passagem (Riocard Mais ou cartão da empresa de ônibus), pode enviar uma foto da frente, mostrando o número."
-      :"Se você já tem cartão de passagem (Riocard Mais ou cartão da empresa de ônibus), tire uma foto da frente, mostrando o número. Se ainda não tem, marque a opção abaixo.";
-    if(o==="nao_opto"){ $("#semCartao").checked=false; $("#cartaoDrop").style.opacity=""; $("#err-cartao").classList.remove("show"); }
+    $("#cartaoSec").classList.toggle("hidden",o!=="opto");
+    if(o!=="opto") $$('input[name=temCartao]').forEach(x=>x.checked=false);
+    $("#err-cartao").classList.remove("show"); cartaoUI();
     $$("[data-n]").filter(n=>!n.closest(".hidden")).forEach((n,i)=>n.textContent=i+1);
     $("#err-opcao").classList.remove("show");
   }
@@ -306,7 +308,7 @@
       const [pv,img,errId]=previewOf[id], err=$("#err-"+errId);
       err.style.color="var(--muted)"; err.textContent="Processando a foto…"; err.classList.add("show");
       try{ fotos[id]=await compress(f); $(img).src=fotos[id]; $(pv).classList.add("show"); err.classList.remove("show");
-        if(id==="cartaoFile"){ $("#semCartao").checked=false; $("#cartaoDrop").style.opacity=""; } }
+        if(id==="cartaoFile") err.classList.remove("show"); }
       catch(x){ fotos[id]=null; err.textContent="Não foi possível ler esta imagem. Tire uma nova foto."; }
       err.style.color=""; e.target.value="";
     };
@@ -316,7 +318,13 @@
   Object.keys(fotos).forEach(bindFoto);
   $$("[data-gallery]").forEach(b=>b.onclick=()=>galleryInputs[b.dataset.gallery].click());
   $$("[data-retake]").forEach(b=>b.onclick=()=>$("#"+b.dataset.retake).click());
-  $("#semCartao").addEventListener("change",e=>{ if(e.target.checked){fotos.cartaoFile=null;$("#cartaoPreview").classList.remove("show");} $("#cartaoDrop").style.opacity=e.target.checked?".5":""; $("#err-cartao").classList.remove("show"); });
+  function temCartao(){const r=$('input[name=temCartao]:checked');return r?r.value:null;}
+  function cartaoAtivo(){return opcao()==="opto"&&temCartao()==="sim";}
+  function cartaoUI(){
+    const on=cartaoAtivo(); $("#cartaoCampos").classList.toggle("hidden",!on);
+    if(!on){ fotos.cartaoFile=null; $("#cartaoPreview").classList.remove("show"); $("#cartaoNum").value=""; }
+  }
+  $$('input[name=temCartao]').forEach(x=>x.addEventListener("change",()=>{ $("#err-cartao").classList.remove("show"); cartaoUI(); }));
 
   /* ---------- Carta ---------- */
   function modeloCarta(){
@@ -343,8 +351,9 @@
       $("#err-comp").textContent="Anexe a foto do comprovante de residência.";
       mark("comp",!!fotos.compFile,$("#compDrop"));
       mark("chkData",$("#chkData").checked,$("#chkData"));
-      $("#err-cartao").textContent="Tire a foto do cartão de passagem ou marque que ainda não tem cartão.";
-      mark("cartao",!!fotos.cartaoFile||$("#semCartao").checked,$("#cartaoDrop"));
+      const tc=temCartao();
+      $("#err-cartao").textContent=tc?"Tire a foto do cartão de passagem.":"Informe se você tem cartão de passagem.";
+      mark("cartao",tc==="nao"||(tc==="sim"&&!!fotos.cartaoFile),$("#cartaoSec"));
       mark("decl",$("#d1").checked&&$("#d2").checked,$("#d1"));
     } else if(o==="nao_opto"){
       $("#err-carta").textContent="Envie a foto da carta de próprio punho assinada.";
@@ -366,8 +375,8 @@
     const ida=o==="opto"?legData("ida"):[], volta=o==="opto"?legData("volta"):[];
     const body={action:"enviar",codigo:convite.codigo,opcao:o,nome:$("#nome").value.trim(),local:$("#local").value.trim(),dataTexto,
       endereco:o==="opto"?{rua:$("#rua").value.trim(),numero:$("#numero").value.trim(),complemento:$("#compl").value.trim(),bairro:$("#bairro").value.trim(),cidade:$("#cidade").value.trim(),cep:$("#cep").value,uf:$("#uf").value}:null,
-      ida,volta,cartaoNumero:$("#cartaoNum").value.trim(),semCartao:o==="opto"&&$("#semCartao").checked,
-      fotoComprovante:o==="opto"?fotos.compFile:null,fotoCartao:fotos.cartaoFile||null,fotoCarta:o==="nao_opto"?fotos.cartaFile:null,
+      ida,volta,cartaoNumero:cartaoAtivo()?$("#cartaoNum").value.trim():"",semCartao:o==="opto"&&temCartao()==="nao",
+      fotoComprovante:o==="opto"?fotos.compFile:null,fotoCartao:cartaoAtivo()?fotos.cartaoFile:null,fotoCarta:o==="nao_opto"?fotos.cartaFile:null,
       comprovanteData:o==="opto"&&$("#chkData").checked,declaracoes:true,lgpd:true,lgpdVersao:"2026-10",assinatura:true,dispositivo:navigator.userAgent};
     try{
       const r=await (await fetch(API,{method:"POST",body:JSON.stringify(body)})).json();
